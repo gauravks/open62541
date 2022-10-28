@@ -78,7 +78,7 @@ UA_ServerConfig_setDefaultWithSecurityPolicies(UA_ServerConfig *conf,
  * certificate. */
 static UA_INLINE UA_StatusCode
 UA_ServerConfig_setDefault(UA_ServerConfig *config) {
-    return UA_ServerConfig_setMinimal(config, 4840, NULL);
+    return UA_ServerConfig_setMinimal(config, 4848, NULL);
 }
 
 /* Creates a new server config with no security policies and no endpoints.
