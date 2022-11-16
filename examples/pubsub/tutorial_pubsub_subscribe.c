@@ -222,7 +222,6 @@ static void fillTestDataSetMetaData(UA_DataSetMetaDataType *pMetaData) {
     if(pMetaData == NULL) {
         return;
     }
-    printf("Data\n");
 
     UA_DataSetMetaDataType_init (pMetaData);
     pMetaData->name = UA_STRING ("DataSet 1");
