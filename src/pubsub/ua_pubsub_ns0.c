@@ -1863,7 +1863,6 @@ addSecurityGroupRepresentation(UA_Server *server, UA_SecurityGroup *securityGrou
 UA_StatusCode
 addDataSetWriterRepresentation(UA_Server *server, UA_DataSetWriter *dataSetWriter) {
 
-    printf("addDataSetWriterRepresentation\n");
     UA_LOCK_ASSERT(&server->serviceMutex, 1);
 
     UA_StatusCode retVal = UA_STATUSCODE_GOOD;
@@ -1873,8 +1872,6 @@ addDataSetWriterRepresentation(UA_Server *server, UA_DataSetWriter *dataSetWrite
     char dswName[513];
     memcpy(dswName, dataSetWriter->config.name.data, dataSetWriter->config.name.length);
     dswName[dataSetWriter->config.name.length] = '\0';
-
-    printf("addDataSetWriterRepresentation dd\n");
 
     UA_ObjectAttributes object_attr = UA_ObjectAttributes_default;
     object_attr.displayName = UA_LOCALIZEDTEXT("", dswName);
@@ -1919,12 +1916,17 @@ addDataSetWriterRepresentation(UA_Server *server, UA_DataSetWriter *dataSetWrite
                             UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
                             statusIdNode);
 
+    if(UA_NodeId_isNull(&keyFrameNode)) {
+
+        // TODO Check why keyFrameNode is null
+    }
+
+
     if(UA_NodeId_isNull(&dataSetWriterIdNode) ||
-        UA_NodeId_isNull(&keyFrameNode) ||
-        UA_NodeId_isNull(&dataSetFieldContentMaskNode) ||
-        UA_NodeId_isNull(&stateIdNode)) {
-             return UA_STATUSCODE_BADNOTFOUND;
-     }
+       UA_NodeId_isNull(&dataSetFieldContentMaskNode) ||
+       UA_NodeId_isNull(&stateIdNode)) {
+            return UA_STATUSCODE_BADNOTFOUND;
+    }
 
     UA_NodePropertyContext *dataSetWriterIdContext = (UA_NodePropertyContext *)
         UA_malloc(sizeof(UA_NodePropertyContext));
