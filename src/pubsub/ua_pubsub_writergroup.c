@@ -915,6 +915,8 @@ UA_WriterGroup_setPubSubState_operational(UA_Server *server,
     case UA_PUBSUBSTATE_PAUSED:
         break;
     case UA_PUBSUBSTATE_PREOPERATIONAL:
+        // TODO: Should checks be included to confirm if all the initialization required for 
+        // publishing is done such as network configutation and Security Keys?
         if(writerGroup->config.pubsubManagerCallback.removeCustomCallback)
             writerGroup->config.pubsubManagerCallback.
                 removeCustomCallback(server, writerGroup->identifier,
