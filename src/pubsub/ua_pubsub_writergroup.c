@@ -222,6 +222,13 @@ UA_WriterGroup_create(UA_Server *server, const UA_NodeId connection,
 
     if(writerGroupIdentifier)
         UA_NodeId_copy(&newWriterGroup->identifier, writerGroupIdentifier);
+
+    if (writerGroupConfig->enabled)
+    {
+        UA_UNLOCK(&server->serviceMutex);
+        res = UA_Server_enableWriterGroup(server, *writerGroupIdentifier);
+        UA_LOCK(&server->serviceMutex);
+    }
     return res;
 }
 
@@ -475,14 +482,20 @@ UA_WriterGroup_unfreezeConfiguration(UA_Server *server, UA_WriterGroup *wg) {
 }
 
 UA_StatusCode
-UA_Server_setWriterGroupPreOperational(UA_Server *server,
+UA_Server_enableWriterGroup(UA_Server *server,
                                     const UA_NodeId writerGroup) {
     UA_LOCK(&server->serviceMutex);
     UA_StatusCode res = UA_STATUSCODE_BADNOTFOUND;
     UA_WriterGroup *wg = UA_WriterGroup_findWGbyId(server, writerGroup);
     if(wg)
+    {
+        // TODO: Check connection state to decide the taget state
+        // If connection is operational -> switch to preoperational
+        // otherwise switch to paused 
         res = UA_WriterGroup_setPubSubState(server, wg, UA_PUBSUBSTATE_PREOPERATIONAL,
                                             UA_STATUSCODE_GOOD);
+    }
+        
     UA_UNLOCK(&server->serviceMutex);
     return res;
 }
@@ -500,6 +513,16 @@ UA_Server_unfreezeWriterGroupConfiguration(UA_Server *server,
     UA_UNLOCK(&server->serviceMutex);
     return res;
 }
+
+UA_StatusCode
+UA_WriterGroup_setOperational(UA_Server *server,
+                              const UA_NodeId writerGroup)
+{
+    UA_WriterGroup *wg = UA_WriterGroup_findWGbyId(server, writerGroup);
+    return UA_WriterGroup_setPubSubState(server, wg, UA_PUBSUBSTATE_OPERATIONAL,
+                                            UA_STATUSCODE_GOOD);
+}
+
 
 UA_StatusCode
 UA_Server_setWriterGroupOperational(UA_Server *server,
@@ -523,6 +546,7 @@ UA_Server_setWriterGroupOperational(UA_Server *server,
                                             UA_STATUSCODE_GOOD);
     }
     UA_UNLOCK(&server->serviceMutex);
+
     return res;
 }
 
@@ -736,6 +760,12 @@ UA_Server_setWriterGroupEncryptionKeys(UA_Server *server, const UA_NodeId writer
     UA_LOCK(&server->serviceMutex);
     UA_StatusCode res = setWriterGroupEncryptionKeys(server, writerGroup, securityTokenId,
                                                      signingKey, encryptingKey, keyNonce);
+
+    if (res == UA_STATUSCODE_GOOD)
+    {
+       res = UA_WriterGroup_setOperational(server, writerGroup);
+    }
+
     UA_UNLOCK(&server->serviceMutex);
     return res;
 }
@@ -802,7 +832,8 @@ UA_WriterGroup_setPubSubState_paused(UA_Server *server,
     (void)cause;
     switch (writerGroup->state) {
         case UA_PUBSUBSTATE_DISABLED:
-            break;
+            writerGroup->state = UA_PUBSUBSTATE_PAUSED;
+            return UA_STATUSCODE_GOOD;
         case UA_PUBSUBSTATE_PAUSED:
             break;
         case UA_PUBSUBSTATE_PREOPERATIONAL:
@@ -814,30 +845,6 @@ UA_WriterGroup_setPubSubState_paused(UA_Server *server,
         default:
             UA_LOG_WARNING_WRITERGROUP(&server->config.logger, writerGroup,
                                         "Received unknown PubSub state!");
-    }
-    return UA_STATUSCODE_BADNOTSUPPORTED;
-}
-
-static UA_StatusCode
-UA_WriterGroup_setPubSubState_preoperational(UA_Server *server,
-                                            UA_WriterGroup *writerGroup,
-                                            UA_StatusCode cause) {
-    switch(writerGroup->state) {
-        case UA_PUBSUBSTATE_DISABLED:
-        case UA_PUBSUBSTATE_PAUSED:
-            writerGroup->state = UA_PUBSUBSTATE_PREOPERATIONAL;
-            return UA_STATUSCODE_GOOD;
-        case UA_PUBSUBSTATE_PREOPERATIONAL:
-            break;
-        case UA_PUBSUBSTATE_OPERATIONAL:
-            return UA_STATUSCODE_GOOD;
-        case UA_PUBSUBSTATE_ERROR:
-            writerGroup->state = UA_PUBSUBSTATE_PREOPERATIONAL;
-            return UA_STATUSCODE_GOOD;
-        default:
-            UA_LOG_WARNING(&server->config.logger, UA_LOGCATEGORY_SERVER,
-                           "Unknown PubSub state!");
-            return UA_STATUSCODE_BADINTERNALERROR;
     }
     return UA_STATUSCODE_BADNOTSUPPORTED;
 }
@@ -881,6 +888,50 @@ UA_WriterGroup_setPubSubState_operational(UA_Server *server,
     }
     return UA_STATUSCODE_BADNOTSUPPORTED;
 }
+
+
+static UA_StatusCode
+UA_WriterGroup_setPubSubState_preoperational(UA_Server *server,
+                                            UA_WriterGroup *writerGroup,
+                                            UA_StatusCode cause) {
+    UA_StatusCode ret = UA_STATUSCODE_GOOD;
+    switch(writerGroup->state) {
+        case UA_PUBSUBSTATE_DISABLED:
+        case UA_PUBSUBSTATE_PAUSED:
+            writerGroup->state = UA_PUBSUBSTATE_PREOPERATIONAL;
+            ret = UA_STATUSCODE_GOOD;
+            break;
+        case UA_PUBSUBSTATE_PREOPERATIONAL:
+            ret = UA_STATUSCODE_GOOD;
+            break;
+        case UA_PUBSUBSTATE_OPERATIONAL:
+            ret = UA_STATUSCODE_GOOD;
+            break;
+        case UA_PUBSUBSTATE_ERROR:
+            writerGroup->state = UA_PUBSUBSTATE_PREOPERATIONAL;
+            ret = UA_STATUSCODE_GOOD;
+            break;
+        default:
+            UA_LOG_WARNING(&server->config.logger, UA_LOGCATEGORY_SERVER,
+                           "Unknown PubSub state!");
+            return UA_STATUSCODE_BADINTERNALERROR;
+    }
+
+    UA_PubSubConnection* conn = writerGroup->linkedConnection;
+    if (conn->channel->state == UA_PUBSUB_CHANNEL_RDY ||
+        conn->channel->state == UA_PUBSUB_CHANNEL_PUB) {
+#ifdef UA_ENABLE_PUBSUB_ENCRYPTION
+        if (writerGroup->config.securityMode > UA_MESSAGESECURITYMODE_NONE) {
+            if (writerGroup->securityTokenId == 0)
+                return ret;
+        }
+#endif 
+        // Push to operational state
+        ret = UA_WriterGroup_setPubSubState_operational(server, writerGroup, UA_STATUSCODE_GOOD);     
+    }
+    return ret;
+}
+
 
 static UA_StatusCode
 UA_WriterGroup_setPubSubState_error(UA_Server *server,
@@ -944,7 +995,7 @@ UA_WriterGroup_setPubSubState(UA_Server *server, UA_WriterGroup *writerGroup,
         UA_ServerConfig *pConfig = &server->config;
         if(pConfig->pubSubConfig.stateChangeCallback != 0) {
             pConfig->pubSubConfig.
-                stateChangeCallback(server, &writerGroup->identifier, state, cause);
+                stateChangeCallback(server, &writerGroup->identifier, writerGroup->state, cause);
         }
     }
     return ret;

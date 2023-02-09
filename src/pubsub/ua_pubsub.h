@@ -360,6 +360,9 @@ UA_WriterGroup_setPubSubState(UA_Server *server,
                               UA_WriterGroup *writerGroup,
                               UA_PubSubState state,
                               UA_StatusCode cause);
+UA_StatusCode
+UA_WriterGroup_setOperational(UA_Server *server,
+                              const UA_NodeId writerGroup);
 
 void
 UA_WriterGroup_publishCallback(UA_Server *server,

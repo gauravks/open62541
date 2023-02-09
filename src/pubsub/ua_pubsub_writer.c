@@ -97,6 +97,156 @@ UA_DataSetWriterConfig_clear(UA_DataSetWriterConfig *pdsConfig) {
     memset(pdsConfig, 0, sizeof(UA_DataSetWriterConfig));
 }
 
+UA_StatusCode
+UA_Server_enableDataSetWriter(UA_Server *server, const UA_NodeId dataSetWriterIdent) {
+    UA_LOCK(&server->serviceMutex);
+    UA_StatusCode ret = UA_STATUSCODE_BADNOTFOUND;
+    UA_DataSetWriter *dataSetWriter = UA_DataSetWriter_findDSWbyId(server, dataSetWriterIdent);
+
+    if(dataSetWriter)
+    {
+        UA_NodeId wgId = dataSetWriter->linkedWriterGroup;
+        UA_WriterGroup* writerGroup = UA_WriterGroup_findWGbyId(server, wgId);
+        if(writerGroup->state == UA_PUBSUBSTATE_OPERATIONAL || writerGroup->state == UA_PUBSUBSTATE_PREOPERATIONAL) {
+            ret = UA_DataSetWriter_setPubSubState(server, dataSetWriter, UA_PUBSUBSTATE_PREOPERATIONAL,
+                                                    UA_STATUSCODE_GOOD);
+            if(ret != UA_STATUSCODE_GOOD) {
+                UA_LOG_ERROR_WRITER(&server->config.logger, dataSetWriter,
+                                        "Enable DataSetWriter failed - setPubSubState failed");
+            }
+        }
+        else
+        {
+            ret = UA_DataSetWriter_setPubSubState(server, dataSetWriter, UA_PUBSUBSTATE_PAUSED,
+                                                  UA_STATUSCODE_GOOD);
+        }
+    }
+    UA_UNLOCK(&server->serviceMutex);
+    return ret;
+}
+
+static UA_StatusCode setPubSubState_disabled(UA_Server *server,
+                                      UA_DataSetWriter *dataSetWriter) {
+    UA_StatusCode ret = UA_STATUSCODE_GOOD;
+    switch (dataSetWriter->state) {
+        case UA_PUBSUBSTATE_DISABLED:
+            break;
+        case UA_PUBSUBSTATE_PAUSED:
+            dataSetWriter->state = UA_PUBSUBSTATE_DISABLED;
+            //no further action is required
+            break;
+        case UA_PUBSUBSTATE_PREOPERATIONAL:
+        case UA_PUBSUBSTATE_OPERATIONAL:
+            dataSetWriter->state = UA_PUBSUBSTATE_DISABLED;
+            break;
+        case UA_PUBSUBSTATE_ERROR:
+            break;
+        default:
+            UA_LOG_WARNING_WRITER(&server->config.logger, dataSetWriter,
+                                    "Received unknown PubSub state!");
+    }
+
+    return ret;
+}
+
+static UA_StatusCode setPubSubState_paused(UA_Server *server,
+                                    UA_DataSetWriter *dataSetWriter) {
+    UA_StatusCode ret = UA_STATUSCODE_GOOD;
+    switch (dataSetWriter->state){
+        case UA_PUBSUBSTATE_DISABLED:
+            break;
+        case UA_PUBSUBSTATE_PAUSED:
+            break;
+        case UA_PUBSUBSTATE_PREOPERATIONAL:
+            break;
+        case UA_PUBSUBSTATE_OPERATIONAL:
+            break;
+        case UA_PUBSUBSTATE_ERROR:
+            break;
+        default:
+            UA_LOG_WARNING_WRITER(&server->config.logger, dataSetWriter,
+                                    "Received unknown PubSub state!");
+    }
+
+    return ret;
+}
+
+static UA_StatusCode setPubSubState_preoperational(UA_Server *server,
+                                            UA_DataSetWriter *dataSetWriter) {
+    UA_StatusCode ret = UA_STATUSCODE_GOOD;
+    switch (dataSetWriter->state){
+        case UA_PUBSUBSTATE_DISABLED:
+            dataSetWriter->state = UA_PUBSUBSTATE_PREOPERATIONAL;
+            break;
+        case UA_PUBSUBSTATE_PAUSED:
+            dataSetWriter->state = UA_PUBSUBSTATE_PREOPERATIONAL;
+            break;
+        case UA_PUBSUBSTATE_PREOPERATIONAL:
+            break;
+        case UA_PUBSUBSTATE_OPERATIONAL:
+            ret = UA_STATUSCODE_BADNOTSUPPORTED;
+            break;
+        case UA_PUBSUBSTATE_ERROR:
+            dataSetWriter->state = UA_PUBSUBSTATE_PREOPERATIONAL;
+            break;
+        default:
+            UA_LOG_WARNING_WRITER(&server->config.logger, dataSetWriter,
+                                    "Received unknown PubSub state!");
+    }
+
+    // In DSW we do not wait for anything after preoperational, push to operational
+    ret = UA_DataSetWriter_setPubSubState(server, dataSetWriter,
+                                              UA_PUBSUBSTATE_OPERATIONAL,
+                                              UA_STATUSCODE_GOOD);
+    return ret;
+}
+
+static UA_StatusCode setPubSubState_operational(UA_Server *server,
+                                         UA_DataSetWriter *dataSetWriter) {
+    UA_StatusCode ret = UA_STATUSCODE_GOOD;
+    switch (dataSetWriter->state){
+        case UA_PUBSUBSTATE_DISABLED:
+        case UA_PUBSUBSTATE_PAUSED:
+            ret = UA_STATUSCODE_BADNOTSUPPORTED;
+            break;
+        case UA_PUBSUBSTATE_PREOPERATIONAL:
+            dataSetWriter->state = UA_PUBSUBSTATE_OPERATIONAL;
+            break;
+        case UA_PUBSUBSTATE_OPERATIONAL:
+            break;
+        case UA_PUBSUBSTATE_ERROR:
+            dataSetWriter->state = UA_PUBSUBSTATE_OPERATIONAL;
+            break;
+        default:
+            UA_LOG_WARNING_WRITER(&server->config.logger, dataSetWriter,
+                                    "Received unknown PubSub state!");
+    }
+
+    return ret;
+}
+
+static UA_StatusCode setPubSubState_error(UA_Server *server,
+                                   UA_DataSetWriter *dataSetWriter) {
+    UA_StatusCode ret = UA_STATUSCODE_GOOD;
+    switch (dataSetWriter->state){
+        case UA_PUBSUBSTATE_DISABLED:
+            break;
+        case UA_PUBSUBSTATE_PAUSED:
+            break;
+            case UA_PUBSUBSTATE_PREOPERATIONAL:
+            break;
+        case UA_PUBSUBSTATE_OPERATIONAL:
+            break;
+        case UA_PUBSUBSTATE_ERROR:
+            break;
+        default:
+            UA_LOG_WARNING_WRITER(&server->config.logger, dataSetWriter,
+                                    "Received unknown PubSub state!");
+    }
+    dataSetWriter->state = UA_PUBSUBSTATE_ERROR;
+    return ret;
+}
+
 //state machine methods not part of the open62541 state machine API
 UA_StatusCode
 UA_DataSetWriter_setPubSubState(UA_Server *server,
@@ -107,98 +257,19 @@ UA_DataSetWriter_setPubSubState(UA_Server *server,
     UA_PubSubState oldState = dataSetWriter->state;
     switch(state){
         case UA_PUBSUBSTATE_DISABLED:
-            switch (dataSetWriter->state){
-                case UA_PUBSUBSTATE_DISABLED:
-                    break;
-                case UA_PUBSUBSTATE_PAUSED:
-                    dataSetWriter->state = UA_PUBSUBSTATE_DISABLED;
-                    //no further action is required
-                    break;
-                case UA_PUBSUBSTATE_PREOPERATIONAL:
-                case UA_PUBSUBSTATE_OPERATIONAL:
-                    dataSetWriter->state = UA_PUBSUBSTATE_DISABLED;
-                    break;
-                case UA_PUBSUBSTATE_ERROR:
-                    break;
-                default:
-                    UA_LOG_WARNING_WRITER(&server->config.logger, dataSetWriter,
-                                          "Received unknown PubSub state!");
-            }
+            ret = setPubSubState_disabled(server, dataSetWriter);
             break;
         case UA_PUBSUBSTATE_PAUSED:
-            switch (dataSetWriter->state){
-                case UA_PUBSUBSTATE_DISABLED:
-                    break;
-                case UA_PUBSUBSTATE_PAUSED:
-                    break;
-                case UA_PUBSUBSTATE_PREOPERATIONAL:
-                    break;
-                case UA_PUBSUBSTATE_OPERATIONAL:
-                    break;
-                case UA_PUBSUBSTATE_ERROR:
-                    break;
-                default:
-                    UA_LOG_WARNING_WRITER(&server->config.logger, dataSetWriter,
-                                          "Received unknown PubSub state!");
-            }
+            ret = setPubSubState_paused(server, dataSetWriter);
             break;
         case UA_PUBSUBSTATE_PREOPERATIONAL:
-            switch (dataSetWriter->state){
-                case UA_PUBSUBSTATE_DISABLED:
-                    dataSetWriter->state = UA_PUBSUBSTATE_PREOPERATIONAL;
-                    break;
-                case UA_PUBSUBSTATE_PAUSED:
-                    dataSetWriter->state = UA_PUBSUBSTATE_PREOPERATIONAL;
-                    break;
-                case UA_PUBSUBSTATE_PREOPERATIONAL:
-                    break;
-                case UA_PUBSUBSTATE_OPERATIONAL:
-                    ret = UA_STATUSCODE_BADNOTSUPPORTED;
-                    break;
-                case UA_PUBSUBSTATE_ERROR:
-                    dataSetWriter->state = UA_PUBSUBSTATE_PREOPERATIONAL;
-                    break;
-                default:
-                    UA_LOG_WARNING_WRITER(&server->config.logger, dataSetWriter,
-                                          "Received unknown PubSub state!");
-            }
+            ret = setPubSubState_preoperational(server, dataSetWriter);
             break;
         case UA_PUBSUBSTATE_OPERATIONAL:
-            switch (dataSetWriter->state){
-                case UA_PUBSUBSTATE_DISABLED:
-                case UA_PUBSUBSTATE_PAUSED:
-                    ret = UA_STATUSCODE_BADNOTSUPPORTED;
-                    break;
-                case UA_PUBSUBSTATE_PREOPERATIONAL:
-                    dataSetWriter->state = UA_PUBSUBSTATE_OPERATIONAL;
-                    break;
-                case UA_PUBSUBSTATE_OPERATIONAL:
-                    break;
-                case UA_PUBSUBSTATE_ERROR:
-                    dataSetWriter->state = UA_PUBSUBSTATE_OPERATIONAL;
-                    break;
-                default:
-                    UA_LOG_WARNING_WRITER(&server->config.logger, dataSetWriter,
-                                          "Received unknown PubSub state!");
-            }
+            ret = setPubSubState_operational(server, dataSetWriter);
             break;
         case UA_PUBSUBSTATE_ERROR:
-            switch (dataSetWriter->state){
-                case UA_PUBSUBSTATE_DISABLED:
-                    break;
-                case UA_PUBSUBSTATE_PAUSED:
-                    break;
-                 case UA_PUBSUBSTATE_PREOPERATIONAL:
-                    break;
-                case UA_PUBSUBSTATE_OPERATIONAL:
-                    break;
-                case UA_PUBSUBSTATE_ERROR:
-                    break;
-                default:
-                    UA_LOG_WARNING_WRITER(&server->config.logger, dataSetWriter,
-                                          "Received unknown PubSub state!");
-            }
-            dataSetWriter->state = UA_PUBSUBSTATE_ERROR;
+            ret = setPubSubState_error(server, dataSetWriter);
             break;
         default:
             UA_LOG_WARNING_WRITER(&server->config.logger, dataSetWriter,
