@@ -782,7 +782,7 @@ addPubSubConnectionLocked(UA_Server *server,
             continue;
         if(pubSubConnection->enabled) {
             UA_WriterGroup_freezeConfiguration(server, wg);
-            UA_WriterGroup_setPubSubState(server, wg, UA_PUBSUBSTATE_OPERATIONAL,
+            UA_WriterGroup_setPubSubState(server, wg, UA_PUBSUBSTATE_PREOPERATIONAL,
                                           UA_STATUSCODE_GOOD);
         } else {
             UA_WriterGroup_setPubSubState(server, wg, UA_PUBSUBSTATE_DISABLED,
@@ -943,6 +943,7 @@ addDataSetReaderRepresentation(UA_Server *server, UA_DataSetReader *dataSetReade
 
     UA_NodePropertyContext *dataSetReaderStateContext =
         (UA_NodePropertyContext *) UA_malloc(sizeof(UA_NodePropertyContext));
+    UA_CHECK_MEM(dataSetReaderStateContext, return UA_STATUSCODE_BADOUTOFMEMORY);
     dataSetReaderStateContext->parentNodeId = dataSetReader->identifier;
     dataSetReaderStateContext->parentClassifier = UA_NS0ID_DATASETREADERTYPE;
     dataSetReaderStateContext->elementClassiefier = UA_NS0ID_DATASETREADERTYPE_STATUS_STATE;
@@ -1454,6 +1455,7 @@ addWriterGroupRepresentation(UA_Server *server, UA_WriterGroup *writerGroup) {
 
     UA_NodePropertyContext * stateContext = (UA_NodePropertyContext *)
         UA_malloc(sizeof(UA_NodePropertyContext));
+    UA_CHECK_MEM(stateContext, return UA_STATUSCODE_BADOUTOFMEMORY);
     stateContext->parentNodeId = writerGroup->identifier;
     stateContext->parentClassifier = UA_NS0ID_WRITERGROUPTYPE;
     stateContext->elementClassiefier = UA_NS0ID_WRITERGROUPTYPE_STATUS_STATE;
@@ -1692,6 +1694,7 @@ addReaderGroupRepresentation(UA_Server *server, UA_ReaderGroup *readerGroup) {
 
     UA_NodePropertyContext * stateContext = (UA_NodePropertyContext *)
         UA_malloc(sizeof(UA_NodePropertyContext));
+    UA_CHECK_MEM(stateContext, return UA_STATUSCODE_BADOUTOFMEMORY);
     stateContext->parentNodeId = readerGroup->identifier;
     stateContext->parentClassifier = UA_NS0ID_READERGROUPTYPE;
     stateContext->elementClassiefier = UA_NS0ID_READERGROUPTYPE_STATUS_STATE;
@@ -1912,9 +1915,8 @@ addDataSetWriterRepresentation(UA_Server *server, UA_DataSetWriter *dataSetWrite
 
     if(UA_NodeId_isNull(&keyFrameNode)) {
 
-        // TODO Check why keyFrameNode is null
+        // TODO: The keyFrameNode is NULL here, does not depend on the pubsub changes
     }
-
 
     if(UA_NodeId_isNull(&dataSetWriterIdNode) ||
        UA_NodeId_isNull(&dataSetFieldContentMaskNode) ||
@@ -1935,6 +1937,7 @@ addDataSetWriterRepresentation(UA_Server *server, UA_DataSetWriter *dataSetWrite
 
     UA_NodePropertyContext *dataSetWriterStateContext =
         (UA_NodePropertyContext *) UA_malloc(sizeof(UA_NodePropertyContext));
+    UA_CHECK_MEM(dataSetWriterStateContext, return UA_STATUSCODE_BADOUTOFMEMORY);
     dataSetWriterStateContext->parentNodeId = dataSetWriter->identifier;
     dataSetWriterStateContext->parentClassifier = UA_NS0ID_DATASETWRITERTYPE;
     dataSetWriterStateContext->elementClassiefier = UA_NS0ID_DATASETWRITERTYPE_STATUS_STATE;
