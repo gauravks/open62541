@@ -222,6 +222,12 @@ UA_WriterGroup_create(UA_Server *server, const UA_NodeId connection,
 
     if(writerGroupIdentifier)
         UA_NodeId_copy(&newWriterGroup->identifier, writerGroupIdentifier);
+
+    if (writerGroupConfig->enabled)
+    {
+        if(writerGroupIdentifier)
+            res = UA_WriterGroup_enableWriterGroup(server, *writerGroupIdentifier);
+    }
     return res;
 }
 
@@ -475,15 +481,23 @@ UA_WriterGroup_unfreezeConfiguration(UA_Server *server, UA_WriterGroup *wg) {
 }
 
 UA_StatusCode
-UA_Server_setWriterGroupPreOperational(UA_Server *server,
-                                    const UA_NodeId writerGroup) {
+UA_Server_enableWriterGroup(UA_Server *server,
+                                    const UA_NodeId writerGroup)  {
     UA_LOCK(&server->serviceMutex);
+    UA_StatusCode res = UA_WriterGroup_enableWriterGroup(server, writerGroup);
+    UA_UNLOCK(&server->serviceMutex);
+    return res;
+}
+
+UA_StatusCode UA_WriterGroup_enableWriterGroup(UA_Server *server,
+                                    const UA_NodeId writerGroup) {
     UA_StatusCode res = UA_STATUSCODE_BADNOTFOUND;
     UA_WriterGroup *wg = UA_WriterGroup_findWGbyId(server, writerGroup);
     if(wg)
+    {
         res = UA_WriterGroup_setPubSubState(server, wg, UA_PUBSUBSTATE_PREOPERATIONAL,
                                             UA_STATUSCODE_GOOD);
-    UA_UNLOCK(&server->serviceMutex);
+    }
     return res;
 }
 
@@ -500,6 +514,7 @@ UA_Server_unfreezeWriterGroupConfiguration(UA_Server *server,
     UA_UNLOCK(&server->serviceMutex);
     return res;
 }
+
 
 UA_StatusCode
 UA_Server_setWriterGroupOperational(UA_Server *server,
@@ -523,6 +538,7 @@ UA_Server_setWriterGroupOperational(UA_Server *server,
                                             UA_STATUSCODE_GOOD);
     }
     UA_UNLOCK(&server->serviceMutex);
+
     return res;
 }
 
@@ -696,6 +712,8 @@ setWriterGroupEncryptionKeys(UA_Server *server, const UA_NodeId writerGroup,
                              const UA_ByteString encryptingKey,
                              const UA_ByteString keyNonce) {
     UA_WriterGroup *wg = UA_WriterGroup_findWGbyId(server, writerGroup);
+    UA_StatusCode res = UA_STATUSCODE_BAD;
+
     if(!wg)
         return UA_STATUSCODE_BADNOTFOUND;
     if(wg->config.encodingMimeType == UA_PUBSUB_ENCODING_JSON) {
@@ -713,18 +731,26 @@ setWriterGroupEncryptionKeys(UA_Server *server, const UA_NodeId writerGroup,
         wg->securityTokenId = securityTokenId;
         wg->nonceSequenceNumber = 1;
     }
-
-    /* Create a new context */
+    
     if(!wg->securityPolicyContext) {
-        return wg->config.securityPolicy->
+        /* Create a new context */
+        res = wg->config.securityPolicy->
             newContext(wg->config.securityPolicy->policyContext,
                        &signingKey, &encryptingKey, &keyNonce,
                        &wg->securityPolicyContext);
+    } else {
+        /* Update the context */
+         res = wg->config.securityPolicy->
+            setSecurityKeys(wg->securityPolicyContext, &signingKey, &encryptingKey, &keyNonce);
     }
 
-    /* Update the context */
-    return wg->config.securityPolicy->
-        setSecurityKeys(wg->securityPolicyContext, &signingKey, &encryptingKey, &keyNonce);
+    if (res == UA_STATUSCODE_GOOD)
+    {
+       res = UA_WriterGroup_setPubSubState(server, wg, UA_PUBSUBSTATE_OPERATIONAL,
+                                            UA_STATUSCODE_GOOD);;
+    }
+
+    return res;
 }
 
 UA_StatusCode
@@ -736,6 +762,7 @@ UA_Server_setWriterGroupEncryptionKeys(UA_Server *server, const UA_NodeId writer
     UA_LOCK(&server->serviceMutex);
     UA_StatusCode res = setWriterGroupEncryptionKeys(server, writerGroup, securityTokenId,
                                                      signingKey, encryptingKey, keyNonce);
+
     UA_UNLOCK(&server->serviceMutex);
     return res;
 }
@@ -760,6 +787,7 @@ UA_WriterGroup_setPubSubState_disable(UA_Server *server,
                                       UA_WriterGroup *writerGroup,
                                       UA_StatusCode cause) {
     UA_DataSetWriter *dataSetWriter;
+    UA_PubSubChannel *channel = NULL;
     switch (writerGroup->state){
         case UA_PUBSUBSTATE_DISABLED:
             break;
@@ -774,7 +802,7 @@ UA_WriterGroup_setPubSubState_disable(UA_Server *server,
                                                 UA_STATUSCODE_BADRESOURCEUNAVAILABLE);
             }
 
-            UA_PubSubChannel *channel = writerGroup->channel;
+            channel = writerGroup->channel;
             if(!channel) {
                 UA_PubSubConnection *connection = writerGroup->linkedConnection;
                 channel = connection->channel;
@@ -802,7 +830,8 @@ UA_WriterGroup_setPubSubState_paused(UA_Server *server,
     (void)cause;
     switch (writerGroup->state) {
         case UA_PUBSUBSTATE_DISABLED:
-            break;
+            writerGroup->state = UA_PUBSUBSTATE_PAUSED;
+            return UA_STATUSCODE_GOOD;
         case UA_PUBSUBSTATE_PAUSED:
             break;
         case UA_PUBSUBSTATE_PREOPERATIONAL:
@@ -819,34 +848,11 @@ UA_WriterGroup_setPubSubState_paused(UA_Server *server,
 }
 
 static UA_StatusCode
-UA_WriterGroup_setPubSubState_preoperational(UA_Server *server,
-                                            UA_WriterGroup *writerGroup,
-                                            UA_StatusCode cause) {
-    switch(writerGroup->state) {
-        case UA_PUBSUBSTATE_DISABLED:
-        case UA_PUBSUBSTATE_PAUSED:
-            writerGroup->state = UA_PUBSUBSTATE_PREOPERATIONAL;
-            return UA_STATUSCODE_GOOD;
-        case UA_PUBSUBSTATE_PREOPERATIONAL:
-            break;
-        case UA_PUBSUBSTATE_OPERATIONAL:
-            return UA_STATUSCODE_GOOD;
-        case UA_PUBSUBSTATE_ERROR:
-            writerGroup->state = UA_PUBSUBSTATE_PREOPERATIONAL;
-            return UA_STATUSCODE_GOOD;
-        default:
-            UA_LOG_WARNING(&server->config.logger, UA_LOGCATEGORY_SERVER,
-                           "Unknown PubSub state!");
-            return UA_STATUSCODE_BADINTERNALERROR;
-    }
-    return UA_STATUSCODE_BADNOTSUPPORTED;
-}
-
-static UA_StatusCode
 UA_WriterGroup_setPubSubState_operational(UA_Server *server,
                                           UA_WriterGroup *writerGroup,
                                           UA_StatusCode cause) {
     UA_DataSetWriter *dataSetWriter;
+    UA_PubSubChannel *channel = NULL;
     switch(writerGroup->state) {
     case UA_PUBSUBSTATE_DISABLED:
         break;
@@ -860,7 +866,7 @@ UA_WriterGroup_setPubSubState_operational(UA_Server *server,
             UA_DataSetWriter_setPubSubState(server, dataSetWriter,
                                             UA_PUBSUBSTATE_PREOPERATIONAL, cause);
         }
-        UA_PubSubChannel *channel = writerGroup->channel;
+        channel = writerGroup->channel;
         if(!channel) {
             UA_PubSubConnection *connection = writerGroup->linkedConnection;
             channel = connection->channel;
@@ -881,6 +887,50 @@ UA_WriterGroup_setPubSubState_operational(UA_Server *server,
     }
     return UA_STATUSCODE_BADNOTSUPPORTED;
 }
+
+
+static UA_StatusCode
+UA_WriterGroup_setPubSubState_preoperational(UA_Server *server,
+                                            UA_WriterGroup *writerGroup,
+                                            UA_StatusCode cause) {
+    UA_StatusCode ret = UA_STATUSCODE_GOOD;
+    switch(writerGroup->state) {
+        case UA_PUBSUBSTATE_DISABLED:
+        case UA_PUBSUBSTATE_PAUSED:
+            writerGroup->state = UA_PUBSUBSTATE_PREOPERATIONAL;
+            ret = UA_STATUSCODE_GOOD;
+            break;
+        case UA_PUBSUBSTATE_PREOPERATIONAL:
+            ret = UA_STATUSCODE_GOOD;
+            break;
+        case UA_PUBSUBSTATE_OPERATIONAL:
+            ret = UA_STATUSCODE_GOOD;
+            break;
+        case UA_PUBSUBSTATE_ERROR:
+            writerGroup->state = UA_PUBSUBSTATE_PREOPERATIONAL;
+            ret = UA_STATUSCODE_GOOD;
+            break;
+        default:
+            UA_LOG_WARNING(&server->config.logger, UA_LOGCATEGORY_SERVER,
+                           "Unknown PubSub state!");
+            return UA_STATUSCODE_BADINTERNALERROR;
+    }
+
+    UA_PubSubConnection* conn = writerGroup->linkedConnection;
+    if (conn->channel->state == UA_PUBSUB_CHANNEL_RDY ||
+        conn->channel->state == UA_PUBSUB_CHANNEL_PUB) {
+#ifdef UA_ENABLE_PUBSUB_ENCRYPTION
+        if (writerGroup->config.securityMode > UA_MESSAGESECURITYMODE_NONE) {
+            if (writerGroup->securityTokenId == 0)
+                return ret;
+        }
+#endif 
+        // Push to operational state
+        ret = UA_WriterGroup_setPubSubState_operational(server, writerGroup, UA_STATUSCODE_GOOD);     
+    }
+    return ret;
+}
+
 
 static UA_StatusCode
 UA_WriterGroup_setPubSubState_error(UA_Server *server,
@@ -944,7 +994,7 @@ UA_WriterGroup_setPubSubState(UA_Server *server, UA_WriterGroup *writerGroup,
         UA_ServerConfig *pConfig = &server->config;
         if(pConfig->pubSubConfig.stateChangeCallback != 0) {
             pConfig->pubSubConfig.
-                stateChangeCallback(server, &writerGroup->identifier, state, cause);
+                stateChangeCallback(server, &writerGroup->identifier, writerGroup->state, cause);
         }
     }
     return ret;

@@ -227,6 +227,7 @@ typedef struct UA_DataSetWriter {
 #endif
     UA_UInt16 actualDataSetMessageSequenceCount;
     UA_Boolean configurationFrozen;
+    UA_UInt64  pubSubStateTimerId;
 } UA_DataSetWriter;
 
 UA_StatusCode
@@ -360,7 +361,6 @@ UA_WriterGroup_setPubSubState(UA_Server *server,
                               UA_WriterGroup *writerGroup,
                               UA_PubSubState state,
                               UA_StatusCode cause);
-
 void
 UA_WriterGroup_publishCallback(UA_Server *server,
                                UA_WriterGroup *writerGroup);
@@ -368,6 +368,10 @@ UA_WriterGroup_publishCallback(UA_Server *server,
 UA_StatusCode
 UA_WriterGroup_updateConfig(UA_Server *server, UA_WriterGroup *wg,
                             const UA_WriterGroupConfig *config);
+
+UA_StatusCode
+UA_WriterGroup_enableWriterGroup(UA_Server *server,
+                                 const UA_NodeId writerGroup);
 
 #define UA_LOG_WRITERGROUP_INTERNAL(LOGGER, LEVEL, WRITERGROUP, MSG, ...) \
     if(UA_LOGLEVEL <= UA_LOGLEVEL_##LEVEL) {                            \

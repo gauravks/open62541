@@ -573,7 +573,7 @@ UA_EXPORT UA_StatusCode UA_THREADSAFE
 UA_Server_unfreezeWriterGroupConfiguration(UA_Server *server, const UA_NodeId writerGroup);
 
 UA_EXPORT UA_StatusCode UA_THREADSAFE
-UA_Server_setWriterGroupPreOperational(UA_Server *server, const UA_NodeId writerGroup);
+UA_Server_enableWriterGroup(UA_Server *server, const UA_NodeId writerGroup);
 
 UA_StatusCode UA_EXPORT UA_THREADSAFE
 UA_Server_setWriterGroupOperational(UA_Server *server, const UA_NodeId writerGroup);
@@ -633,9 +633,10 @@ UA_EXPORT UA_StatusCode UA_THREADSAFE
 UA_Server_getDataSetWriterConfig(UA_Server *server, const UA_NodeId dsw,
                                  UA_DataSetWriterConfig *config);
 
-UA_StatusCode UA_EXPORT UA_THREADSAFE
-UA_Server_setDataSetWriterOperational(UA_Server *server,
-                                    const UA_NodeId dataSetWriterIdent);
+
+UA_EXPORT UA_StatusCode  UA_THREADSAFE
+UA_Server_enableDataSetWriter(UA_Server *server, const UA_NodeId dataSetWriterIdent);
+
 /* Get state of DataSetWriter */
 UA_EXPORT UA_StatusCode UA_THREADSAFE
 UA_Server_DataSetWriter_getState(UA_Server *server, UA_NodeId dataSetWriterIdentifier,
@@ -761,6 +762,10 @@ UA_EXPORT UA_StatusCode UA_THREADSAFE
 UA_Server_DataSetReader_getState(UA_Server *server, UA_NodeId dataSetReaderIdentifier,
                                  UA_PubSubState *state);
 
+/* Enable DataSetReader*/
+UA_EXPORT UA_StatusCode UA_THREADSAFE
+UA_Server_enableDataSetReader(UA_Server *server, const UA_NodeId dataSetReaderIdentifier);
+
 typedef struct {
     UA_String name;
     UA_SubscribedDataSetEnumType subscribedDataSetType;
@@ -873,6 +878,9 @@ UA_Server_unfreezeReaderGroupConfiguration(UA_Server *server, const UA_NodeId re
 
 UA_EXPORT UA_StatusCode UA_THREADSAFE
 UA_Server_setReaderGroupOperational(UA_Server *server, const UA_NodeId readerGroupId);
+
+UA_EXPORT UA_StatusCode UA_THREADSAFE
+UA_Server_enableReaderGroup(UA_Server *server, const UA_NodeId readerGroupId);
 
 UA_EXPORT UA_StatusCode UA_THREADSAFE
 UA_Server_setReaderGroupDisabled(UA_Server *server, const UA_NodeId readerGroupId);
