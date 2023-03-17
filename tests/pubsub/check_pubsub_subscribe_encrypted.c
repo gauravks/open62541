@@ -13,6 +13,7 @@
 
 #include "ua_pubsub.h"
 #include "ua_server_internal.h"
+#include "testing_clock.h"
 
 #include <check.h>
 #include <time.h>
@@ -280,6 +281,7 @@ START_TEST(SinglePublishSubscribeInt32) {
         writerGroupConfig.securityPolicy = &config->pubSubConfig.securityPolicies[0];
 
         retVal |= UA_Server_addWriterGroup(server, connection_test, &writerGroupConfig, &writerGroup);
+        retVal |= UA_Server_enableWriterGroup(server, writerGroup);
 
 
         UA_UadpWriterGroupMessageDataType_delete(writerGroupMessage);
@@ -307,7 +309,7 @@ START_TEST(SinglePublishSubscribeInt32) {
         readerGroupConfig.securityPolicy = &config->pubSubConfig.securityPolicies[0];
 
         retVal |=  UA_Server_addReaderGroup(server, connection_test, &readerGroupConfig, &readerGroupTest);
-
+        retVal |= UA_Server_enableReaderGroup(server, readerGroupTest);
         /* Add the encryption key informaton for readergroup */
         // TODO security token not necessary for readergroup (extracted from security-header)
         UA_Server_setReaderGroupEncryptionKeys(server, readerGroupTest, 1, sk, ek, kn);
@@ -387,9 +389,11 @@ START_TEST(SinglePublishSubscribeInt32) {
         UA_FieldTargetDataType_clear(&targetVar.targetVariable);
         UA_free(pMetaData->fields);
 
-        /* run callbacks - publisher and subscriber */
-        UA_Server_setWriterGroupOperational(server, writerGroup);
-        UA_Server_setReaderGroupOperational(server, readerGroupTest);
+        /* run server - publisher and subscriber */
+        UA_fakeSleep(PUBLISH_INTERVAL + 1);
+        UA_Server_run_iterate(server,true);
+        UA_fakeSleep(PUBLISH_INTERVAL + 1);
+        UA_Server_run_iterate(server,true);
 
         /* Read data sent by the Publisher */
         UA_Variant *publishedNodeData = UA_Variant_new();
