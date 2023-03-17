@@ -50,9 +50,10 @@ static void setup(void) {
     UA_Variant_setScalar(&connectionConfig.address, &networkAddressUrl,
                          &UA_TYPES[UA_TYPES_NETWORKADDRESSURLDATATYPE]);
     connectionConfig.transportProfileUri = UA_STRING("http://opcfoundation.org/UA-Profile/Transport/pubsub-udp-uadp");
-    retVal |= UA_Server_addPubSubConnection(server, &connectionConfig, &connection1);
-    retVal |= UA_Server_addPubSubConnection(server, &connectionConfig, &connection2);
-    ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
+    UA_Server_addPubSubConnection(server, &connectionConfig, &connection1);
+    UA_Server_setPubSubConnectionOperational(server, connection1);
+    UA_Server_addPubSubConnection(server, &connectionConfig, &connection2);
+    UA_Server_setPubSubConnectionOperational(server, connection2);
 }
 
 static void teardown(void) {

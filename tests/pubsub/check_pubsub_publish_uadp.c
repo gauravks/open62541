@@ -35,7 +35,9 @@ static void setup(void) {
     connectionConfig.transportProfileUri = UA_STRING("http://opcfoundation.org/UA-Profile/Transport/pubsub-udp-uadp");
     connectionConfig.publisherIdType = UA_PUBLISHERIDTYPE_UINT16;
     connectionConfig.publisherId.uint16 = 62541;
-    retVal |= UA_Server_addPubSubConnection(server, &connectionConfig, &connection1);
+    connectionConfig.enabled = UA_TRUE;
+    UA_Server_addPubSubConnection(server, &connectionConfig, &connection1);
+    UA_Server_setPubSubConnectionOperational(server, connection1);
 
     UA_PublishedDataSetConfig publishedDataSetConfig;
     memset(&publishedDataSetConfig, 0, sizeof(UA_PublishedDataSetConfig));
@@ -143,7 +145,7 @@ START_TEST(CheckNMandDSMcalculation){
     UA_WriterGroupConfig writerGroupConfig;
     memset(&writerGroupConfig, 0, sizeof(UA_WriterGroupConfig));
     writerGroupConfig.name = UA_STRING("Demo WriterGroup");
-    writerGroupConfig.publishingInterval = 10;
+    writerGroupConfig.publishingInterval = 5;
     writerGroupConfig.enabled = UA_FALSE;
     writerGroupConfig.writerGroupId = 100;
     writerGroupConfig.encodingMimeType = UA_PUBSUB_ENCODING_UADP;

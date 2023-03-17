@@ -75,6 +75,7 @@ static void setup(void) {
 
     retVal |= UA_Server_addPubSubConnection(server, &connectionConfig, &connectionIdent);
     ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
+    UA_Server_setPubSubConnectionOperational(server, connectionIdent);
 }
 
 static void teardown(void) {

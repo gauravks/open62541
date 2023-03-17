@@ -186,6 +186,8 @@ static void setup(void) {
     connectionConfig.publisherId.uint16 = PUBLISHER_ID;
     retval |= UA_Server_addPubSubConnection(server, &connectionConfig, &connectionId);
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    UA_Server_enablePubSubConnection(server, connectionId);
+    UA_Server_setPubSubConnectionOperational(server, connectionId);
 }
 
 /* teardown() is to delete the environment set for test cases */

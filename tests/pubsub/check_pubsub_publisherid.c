@@ -73,6 +73,7 @@ static void AddConnection(
     /* deep copy is not needed (not even for string) because UA_Server_addPubSubConnection performs deep copy */
     connectionConfig.publisherId = publisherId;
     ck_assert_int_eq(UA_STATUSCODE_GOOD, UA_Server_addPubSubConnection(server, &connectionConfig, opConnectionId));
+    ck_assert_int_eq(UA_STATUSCODE_GOOD, UA_Server_setPubSubConnectionOperational(server, *opConnectionId));
     UA_LOCK(&server->serviceMutex);
     ck_assert_int_eq(UA_STATUSCODE_GOOD, UA_PubSubConnection_regist(server, opConnectionId, NULL));
     UA_UNLOCK(&server->serviceMutex);
@@ -1158,6 +1159,7 @@ static void DoTest_string_PublisherId(void) {
             &publisherVarIds[3], &fastPathPublisherDataValues[3], &DsWId_Conn4_WG1_DS1);
         PublishedDataSetIds[3] = PDSId_Conn4_WG1_PDS1;
 
+
         /* setup Connection 5 */
         UA_NodeId ConnId_5;
         UA_NodeId_init(&ConnId_5);
@@ -1784,6 +1786,7 @@ static void DoTest_multiple_Groups(void) {
     AddPublishedDataSet(&WGId_Conn3_WG2, "Conn3_WG2_PDS1", "Conn3_WG2_DS1", DSW_Id, &PDSId_Conn3_WG2_PDS1,
         &publisherVarIds[7], &fastPathPublisherDataValues[7], &DsWId_Conn3_WG2_DS1);
     PublishedDataSetIds[7] = PDSId_Conn3_WG2_PDS1;
+
 
     /* setup all Subscribers */
 
