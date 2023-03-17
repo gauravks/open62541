@@ -10,7 +10,7 @@
 #include <open62541/server_pubsub.h>
 
 #include "ua_server_internal.h"
-
+#include "testing_clock.h"
 #include <check.h>
 
 UA_Server *server = NULL;
@@ -158,7 +158,7 @@ START_TEST(CheckNMandDSMcalculation){
     //maximum DSM in one NM = 10
     writerGroupConfig.maxEncapsulatedDataSetMessageCount = 10;
     retVal |= UA_Server_addWriterGroup(server, connection1, &writerGroupConfig, &writerGroupIdent);
-    UA_Server_setWriterGroupOperational(server, writerGroupIdent);
+    UA_Server_enableWriterGroup(server, writerGroupIdent);
     UA_UadpWriterGroupMessageDataType_delete(wgm);
 
     UA_DataSetWriterConfig dataSetWriterConfig;
@@ -182,6 +182,10 @@ START_TEST(CheckNMandDSMcalculation){
     writerGroupConfig.publishingInterval = 100000;
     retVal |= UA_Server_updateWriterGroupConfig(server, writerGroupIdent, &writerGroupConfig);
 
+    UA_fakeSleep(50 + 1);
+    UA_Server_run_iterate(server,true);
+    UA_fakeSleep(100000 + 1);
+    UA_Server_run_iterate(server,true);
     UA_ByteString buffer = UA_BYTESTRING("");
     UA_NetworkMessage networkMessage;
     receiveAvailableMessages(buffer, connection, &networkMessage);
@@ -201,6 +205,7 @@ START_TEST(CheckNMandDSMcalculation){
     writerGroupConfig.maxEncapsulatedDataSetMessageCount = 5;
     retVal |= UA_Server_updateWriterGroupConfig(server, writerGroupIdent, &writerGroupConfig);
     // UA_NetworkMessage networkMessage1, networkMessage2;
+
     UA_NetworkMessage networkMessages[2];
     receiveAvailableMessages(buffer, connection, networkMessages);
     ck_assert_uint_eq(networkMessages[0].payloadHeader.dataSetPayloadHeader.count, 5);
@@ -220,6 +225,7 @@ START_TEST(CheckNMandDSMcalculation){
     writerGroupConfig.maxEncapsulatedDataSetMessageCount = 20;
     retVal |= UA_Server_updateWriterGroupConfig(server, writerGroupIdent, &writerGroupConfig);
     UA_NetworkMessage networkMessage3;
+
     receiveAvailableMessages(buffer, connection, &networkMessage3);
     ck_assert_uint_eq(networkMessage3.payloadHeader.dataSetPayloadHeader.count, 10);
 
@@ -234,6 +240,7 @@ START_TEST(CheckNMandDSMcalculation){
     writerGroupConfig.maxEncapsulatedDataSetMessageCount = 1;
     retVal |= UA_Server_updateWriterGroupConfig(server, writerGroupIdent, &writerGroupConfig);
     UA_NetworkMessage messageArray[10];
+
     receiveAvailableMessages(buffer, connection, messageArray);
     for (int j = 0; j < 10; ++j) {
         ck_assert_uint_eq(messageArray[j].payloadHeader.dataSetPayloadHeader.count, 1);
@@ -247,7 +254,6 @@ START_TEST(CheckNMandDSMcalculation){
     writerGroupConfig.publishingInterval = 500000;
     //maximum DSM in one NM = 0 -> should be equal to 1
     writerGroupConfig.maxEncapsulatedDataSetMessageCount = 0;
-    retVal |= UA_Server_updateWriterGroupConfig(server, writerGroupIdent, &writerGroupConfig);
     retVal |= UA_Server_updateWriterGroupConfig(server, writerGroupIdent, &writerGroupConfig);
 
     receiveAvailableMessages(buffer, connection, messageArray);
@@ -282,7 +288,7 @@ START_TEST(CheckNMandDSMBufferCalculation){
         //maximum DSM in one NM = 10
         writerGroupConfig.maxEncapsulatedDataSetMessageCount = 10;
         retVal |= UA_Server_addWriterGroup(server, connection1, &writerGroupConfig, &writerGroupIdent);
-        UA_Server_setWriterGroupOperational(server, writerGroupIdent);
+        UA_Server_enableWriterGroup(server, writerGroupIdent);
         UA_UadpWriterGroupMessageDataType_delete(wgm);
 
         UA_DataSetWriterConfig dataSetWriterConfig;
@@ -323,7 +329,7 @@ START_TEST(CheckSingleDSMRawEncodedMessage){
     //maximum DSM in one NM = 10
     writerGroupConfig.maxEncapsulatedDataSetMessageCount = 10;
     retVal |= UA_Server_addWriterGroup(server, connection1, &writerGroupConfig, &writerGroupIdent);
-    UA_Server_setWriterGroupOperational(server, writerGroupIdent);
+    UA_Server_enableWriterGroup(server, writerGroupIdent);
     UA_UadpWriterGroupMessageDataType_delete(wgm);
 
     UA_DataSetWriterConfig dataSetWriterConfig;
@@ -349,6 +355,11 @@ START_TEST(CheckSingleDSMRawEncodedMessage){
     //change publish interval triggers implicit one publish callback run | alternatively run UA_Server_iterate
     writerGroupConfig.publishingInterval = 100000;
     retVal |= UA_Server_updateWriterGroupConfig(server, writerGroupIdent, &writerGroupConfig);
+
+    UA_fakeSleep(50 + 1);
+    UA_Server_run_iterate(server,true);
+    UA_fakeSleep(100000 + 1);
+    UA_Server_run_iterate(server,true);
 
     UA_ByteString buffer = UA_BYTESTRING("");
     UA_NetworkMessage networkMessage;
