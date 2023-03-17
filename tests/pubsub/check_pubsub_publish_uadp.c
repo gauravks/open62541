@@ -158,7 +158,7 @@ START_TEST(CheckNMandDSMcalculation){
     //maximum DSM in one NM = 10
     writerGroupConfig.maxEncapsulatedDataSetMessageCount = 10;
     retVal |= UA_Server_addWriterGroup(server, connection1, &writerGroupConfig, &writerGroupIdent);
-    UA_Server_setWriterGroupOperational(server, writerGroupIdent);
+    UA_Server_enableWriterGroup(server, writerGroupIdent);
     UA_UadpWriterGroupMessageDataType_delete(wgm);
 
     UA_DataSetWriterConfig dataSetWriterConfig;
@@ -282,7 +282,7 @@ START_TEST(CheckNMandDSMBufferCalculation){
         //maximum DSM in one NM = 10
         writerGroupConfig.maxEncapsulatedDataSetMessageCount = 10;
         retVal |= UA_Server_addWriterGroup(server, connection1, &writerGroupConfig, &writerGroupIdent);
-        UA_Server_setWriterGroupOperational(server, writerGroupIdent);
+        UA_Server_enableWriterGroup(server, writerGroupIdent);
         UA_UadpWriterGroupMessageDataType_delete(wgm);
 
         UA_DataSetWriterConfig dataSetWriterConfig;
@@ -323,7 +323,7 @@ START_TEST(CheckSingleDSMRawEncodedMessage){
     //maximum DSM in one NM = 10
     writerGroupConfig.maxEncapsulatedDataSetMessageCount = 10;
     retVal |= UA_Server_addWriterGroup(server, connection1, &writerGroupConfig, &writerGroupIdent);
-    UA_Server_setWriterGroupOperational(server, writerGroupIdent);
+    UA_Server_enableWriterGroup(server, writerGroupIdent);
     UA_UadpWriterGroupMessageDataType_delete(wgm);
 
     UA_DataSetWriterConfig dataSetWriterConfig;
