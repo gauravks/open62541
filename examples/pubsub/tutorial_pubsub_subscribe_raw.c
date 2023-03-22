@@ -60,6 +60,8 @@ addPubSubConnection(UA_Server *server, UA_String *transportProfile,
     if(retval != UA_STATUSCODE_GOOD) {
         return retval;
     }
+
+    UA_Server_setPubSubConnectionOperational(server, connectionIdentifier);
     UA_LOCK(&server->serviceMutex);
     retval |= UA_PubSubConnection_regist(server, &connectionIdentifier, NULL);
     UA_UNLOCK(&server->serviceMutex);
