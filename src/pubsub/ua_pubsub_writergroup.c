@@ -226,7 +226,8 @@ UA_WriterGroup_create(UA_Server *server, const UA_NodeId connection,
     if (writerGroupConfig->enabled)
     {
         UA_UNLOCK(&server->serviceMutex);
-        res = UA_Server_enableWriterGroup(server, *writerGroupIdentifier);
+        if(writerGroupIdentifier)
+            res = UA_Server_enableWriterGroup(server, *writerGroupIdentifier);
         UA_LOCK(&server->serviceMutex);
     }
     return res;
@@ -787,6 +788,7 @@ UA_WriterGroup_setPubSubState_disable(UA_Server *server,
                                       UA_WriterGroup *writerGroup,
                                       UA_StatusCode cause) {
     UA_DataSetWriter *dataSetWriter;
+    UA_PubSubChannel *channel = NULL;
     switch (writerGroup->state){
         case UA_PUBSUBSTATE_DISABLED:
             break;
@@ -801,7 +803,7 @@ UA_WriterGroup_setPubSubState_disable(UA_Server *server,
                                                 UA_STATUSCODE_BADRESOURCEUNAVAILABLE);
             }
 
-            UA_PubSubChannel *channel = writerGroup->channel;
+            channel = writerGroup->channel;
             if(!channel) {
                 UA_PubSubConnection *connection = writerGroup->linkedConnection;
                 channel = connection->channel;
@@ -851,6 +853,7 @@ UA_WriterGroup_setPubSubState_operational(UA_Server *server,
                                           UA_WriterGroup *writerGroup,
                                           UA_StatusCode cause) {
     UA_DataSetWriter *dataSetWriter;
+    UA_PubSubChannel *channel = NULL;
     switch(writerGroup->state) {
     case UA_PUBSUBSTATE_DISABLED:
         break;
@@ -864,7 +867,7 @@ UA_WriterGroup_setPubSubState_operational(UA_Server *server,
             UA_DataSetWriter_setPubSubState(server, dataSetWriter,
                                             UA_PUBSUBSTATE_PREOPERATIONAL, cause);
         }
-        UA_PubSubChannel *channel = writerGroup->channel;
+        channel = writerGroup->channel;
         if(!channel) {
             UA_PubSubConnection *connection = writerGroup->linkedConnection;
             channel = connection->channel;

@@ -184,8 +184,7 @@ static UA_StatusCode setPubSubState_preoperational(UA_Server *server,
         case UA_PUBSUBSTATE_PREOPERATIONAL:
             break;
         case UA_PUBSUBSTATE_OPERATIONAL:
-            ret = UA_STATUSCODE_BADNOTSUPPORTED;
-            break;
+            return UA_STATUSCODE_BADNOTSUPPORTED;
         case UA_PUBSUBSTATE_ERROR:
             dataSetWriter->state = UA_PUBSUBSTATE_PREOPERATIONAL;
             break;
