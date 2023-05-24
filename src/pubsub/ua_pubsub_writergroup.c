@@ -225,10 +225,8 @@ UA_WriterGroup_create(UA_Server *server, const UA_NodeId connection,
 
     if (writerGroupConfig->enabled)
     {
-        UA_UNLOCK(&server->serviceMutex);
         if(writerGroupIdentifier)
-            res = UA_Server_enableWriterGroup(server, *writerGroupIdentifier);
-        UA_LOCK(&server->serviceMutex);
+            res = UA_WriterGroup_enableWriterGroup(server, *writerGroupIdentifier);
     }
     return res;
 }
@@ -484,8 +482,15 @@ UA_WriterGroup_unfreezeConfiguration(UA_Server *server, UA_WriterGroup *wg) {
 
 UA_StatusCode
 UA_Server_enableWriterGroup(UA_Server *server,
-                                    const UA_NodeId writerGroup) {
+                                    const UA_NodeId writerGroup)  {
     UA_LOCK(&server->serviceMutex);
+    UA_StatusCode res = UA_WriterGroup_enableWriterGroup(server, writerGroup);
+    UA_UNLOCK(&server->serviceMutex);
+    return res;
+}
+
+UA_StatusCode UA_WriterGroup_enableWriterGroup(UA_Server *server,
+                                    const UA_NodeId writerGroup) {
     UA_StatusCode res = UA_STATUSCODE_BADNOTFOUND;
     UA_WriterGroup *wg = UA_WriterGroup_findWGbyId(server, writerGroup);
     if(wg)
@@ -496,8 +501,6 @@ UA_Server_enableWriterGroup(UA_Server *server,
         res = UA_WriterGroup_setPubSubState(server, wg, UA_PUBSUBSTATE_PREOPERATIONAL,
                                             UA_STATUSCODE_GOOD);
     }
-        
-    UA_UNLOCK(&server->serviceMutex);
     return res;
 }
 
@@ -745,8 +748,15 @@ setWriterGroupEncryptionKeys(UA_Server *server, const UA_NodeId writerGroup,
     }
 
     /* Update the context */
-    return wg->config.securityPolicy->
+    UA_StatusCode res = wg->config.securityPolicy->
         setSecurityKeys(wg->securityPolicyContext, &signingKey, &encryptingKey, &keyNonce);
+
+    if (res == UA_STATUSCODE_GOOD)
+    {
+       res = UA_WriterGroup_setOperational(server, writerGroup);
+    }
+
+    return res;
 }
 
 UA_StatusCode
@@ -758,11 +768,6 @@ UA_Server_setWriterGroupEncryptionKeys(UA_Server *server, const UA_NodeId writer
     UA_LOCK(&server->serviceMutex);
     UA_StatusCode res = setWriterGroupEncryptionKeys(server, writerGroup, securityTokenId,
                                                      signingKey, encryptingKey, keyNonce);
-
-    if (res == UA_STATUSCODE_GOOD)
-    {
-       res = UA_WriterGroup_setOperational(server, writerGroup);
-    }
 
     UA_UNLOCK(&server->serviceMutex);
     return res;

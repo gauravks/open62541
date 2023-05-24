@@ -236,13 +236,13 @@ UA_DataSetReader_create(UA_Server *server, UA_NodeId readerGroupIdentifier,
     if(readerIdentifier)
         UA_NodeId_copy(&newDataSetReader->identifier, readerIdentifier);
 
-    /* Set the ReaderGroup state after finalizing the configuration */
+    /* Set the DataSetReader state after finalizing the configuration */
     if(readerGroup->state == UA_PUBSUBSTATE_OPERATIONAL ||
        readerGroup->state == UA_PUBSUBSTATE_PREOPERATIONAL) {
         retVal = UA_DataSetReader_setPubSubState(server, newDataSetReader, readerGroup->state,
                                         UA_STATUSCODE_GOOD);
         if(retVal != UA_STATUSCODE_GOOD) {
-            UA_LOG_ERROR_READERGROUP(&server->config.logger, readerGroup,
+            UA_LOG_ERROR_READER(&server->config.logger, newDataSetReader,
                                      "Add DataSetReader failed, setPubSubState failed");
         }
     }
@@ -523,24 +523,27 @@ UA_Server_enableDataSetReader(UA_Server *server, const UA_NodeId dataSetReaderId
     UA_StatusCode ret = UA_STATUSCODE_BADNOTFOUND;
     UA_DataSetReader* dsr = UA_ReaderGroup_findDSRbyId(server, dataSetReaderIdentifier);
 
-    if(dsr)
-    {
-        UA_NodeId rgId = dsr->linkedReaderGroup;
-        UA_ReaderGroup* readerGroup = UA_ReaderGroup_findRGbyId(server, rgId);
-        if(readerGroup->state == UA_PUBSUBSTATE_OPERATIONAL || readerGroup->state == UA_PUBSUBSTATE_PREOPERATIONAL) {
-            ret = UA_DataSetReader_setPubSubState(server, dsr, UA_PUBSUBSTATE_PREOPERATIONAL,
-                                                    UA_STATUSCODE_GOOD);
-            if(ret != UA_STATUSCODE_GOOD) {
-                UA_LOG_ERROR_READERGROUP(&server->config.logger, readerGroup,
-                                        "Enable DataSetReader failed, setPubSubState failed");
-            }
-        }
-        else
-        {
-            ret = UA_DataSetReader_setPubSubState(server, dsr, UA_PUBSUBSTATE_PAUSED,
-                                                  UA_STATUSCODE_GOOD);
+    if(!dsr) {
+        UA_UNLOCK(&server->serviceMutex);
+        return ret;
+    }
+
+    UA_NodeId rgId = dsr->linkedReaderGroup;
+    UA_ReaderGroup* readerGroup = UA_ReaderGroup_findRGbyId(server, rgId);
+    if(readerGroup->state == UA_PUBSUBSTATE_OPERATIONAL ||
+       readerGroup->state == UA_PUBSUBSTATE_PREOPERATIONAL) {
+    ret = UA_DataSetReader_setPubSubState(server, dsr, UA_PUBSUBSTATE_PREOPERATIONAL,
+                                            UA_STATUSCODE_GOOD);
+    if(ret != UA_STATUSCODE_GOOD) {
+            UA_LOG_ERROR_READERGROUP(&server->config.logger, readerGroup,
+                                    "Enable DataSetReader failed, setPubSubState failed");
         }
     }
+    else {
+        ret = UA_DataSetReader_setPubSubState(server, dsr, UA_PUBSUBSTATE_PAUSED,
+                                              UA_STATUSCODE_GOOD);
+    }
+
     UA_UNLOCK(&server->serviceMutex);
     return ret;
 }

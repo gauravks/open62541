@@ -265,11 +265,9 @@ setPubSubGroupEncryptingKey(UA_Server *server, UA_NodeId PubSubGroupId, UA_UInt3
                             UA_ByteString signingKey, UA_ByteString encryptingKey,
                             UA_ByteString keyNonce) {
     UA_LOCK_ASSERT(&server->serviceMutex, 1);
-    UA_UNLOCK(&server->serviceMutex);
     UA_StatusCode retval =
-        UA_Server_setWriterGroupEncryptionKeys(server, PubSubGroupId, securityTokenId,
+        setWriterGroupEncryptionKeys(server, PubSubGroupId, securityTokenId,
                                      signingKey, encryptingKey, keyNonce);
-    UA_LOCK(&server->serviceMutex);
     if(retval == UA_STATUSCODE_BADNOTFOUND)
         retval = setReaderGroupEncryptionKeys(server, PubSubGroupId, securityTokenId,
                                               signingKey, encryptingKey, keyNonce);
