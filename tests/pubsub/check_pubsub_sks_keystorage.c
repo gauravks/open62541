@@ -133,8 +133,10 @@ createKeyStoragewithkeys(UA_UInt32 currentTokenId, UA_UInt32 keysize,
     generateKeyData(server->config.pubSubConfig.securityPolicies, &currentKey);
 
     futureKey = (UA_ByteString *)UA_calloc(keysize, sizeof(UA_ByteString));
-    if(!futureKey)
-        return NULL;
+    if(!futureKey) {
+         UA_UNLOCK(&server->serviceMutex);
+         return NULL;
+    }
 
     for(size_t i = 0; i < keysize; i++) {
         UA_ByteString_allocBuffer(&futureKey[i], keyLength);
@@ -144,13 +146,18 @@ createKeyStoragewithkeys(UA_UInt32 currentTokenId, UA_UInt32 keysize,
     retval = UA_PubSubKeyStorage_storeSecurityKeys(server, tKeyStorage,
                                                    currentTokenId, &currentKey, futureKey,
                                                    keysize, msKeyLifeTime);
-    if(retval != UA_STATUSCODE_GOOD)
-        return NULL;
+    if(retval != UA_STATUSCODE_GOOD) {
+         UA_UNLOCK(&server->serviceMutex);
+         return NULL;
+    }
 
     retval = UA_PubSubKeyStorage_activateKeyToChannelContext(server, UA_NODEID_NULL,
                                                              tKeyStorage->securityGroupID);
-    if(retval != UA_STATUSCODE_GOOD)
-        return NULL;
+    if(retval != UA_STATUSCODE_GOOD) {
+         UA_UNLOCK(&server->serviceMutex);
+         return NULL;
+    }
+        
 
     callbackTime = msKeyLifeTime;
     if(msTimeToNextKey > 0)

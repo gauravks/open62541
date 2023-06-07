@@ -304,7 +304,7 @@ START_TEST(Test_normal_operation) {
     
     ck_assert(UA_Server_enableWriterGroup(server, WGId_Conn1_WG1) == UA_STATUSCODE_GOOD);
     ck_assert_int_eq(UA_STATUSCODE_GOOD, UA_Server_WriterGroup_getState(server, WGId_Conn1_WG1, &state));
-    ck_assert_int_eq(UA_PUBSUBSTATE_OPERATIONAL, state);
+    ck_assert_int_eq(UA_PUBSUBSTATE_PAUSED, state);
 
     ck_assert(UA_Server_enableReaderGroup(server, RGId_Conn1_RG1) == UA_STATUSCODE_GOOD);
     ck_assert_int_eq(UA_STATUSCODE_GOOD, UA_Server_ReaderGroup_getState(server, RGId_Conn1_RG1, &state));
@@ -317,7 +317,7 @@ START_TEST(Test_normal_operation) {
     ck_assert_int_eq(UA_PUBSUBSTATE_OPERATIONAL, state);
 
     ck_assert_int_eq(UA_STATUSCODE_GOOD, UA_Server_WriterGroup_getState(server, WGId_Conn1_WG1, &state));
-    ck_assert_int_eq(UA_PUBSUBSTATE_PREOPERATIONAL, state);
+    ck_assert_int_eq(UA_PUBSUBSTATE_OPERATIONAL, state);
 
     ck_assert_int_eq(UA_STATUSCODE_GOOD, UA_Server_ReaderGroup_getState(server, RGId_Conn1_RG1, &state));
     ck_assert_int_eq(UA_PUBSUBSTATE_PREOPERATIONAL, state);

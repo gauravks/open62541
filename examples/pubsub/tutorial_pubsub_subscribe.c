@@ -73,7 +73,7 @@ addPubSubConnection(UA_Server *server, UA_String *transportProfile,
         return retval;
     }
 
-    UA_Server_setPubSubConnectionOperational(server, connectionIdentifier);
+    //UA_Server_setPubSubConnectionOperational(server, connectionIdentifier);
 
     return retval;
 }
@@ -136,6 +136,8 @@ addDataSetReader(UA_Server *server) {
 
     retval |= UA_Server_addDataSetReader(server, readerGroupIdentifier, &readerConfig,
                                          &readerIdentifier);
+
+   // retval |=  UA_Server_enableDataSetReader(server, readerIdentifier);
     return retval;
 }
 

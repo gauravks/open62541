@@ -749,7 +749,7 @@ setWriterGroupEncryptionKeys(UA_Server *server, const UA_NodeId writerGroup,
 
     if (res == UA_STATUSCODE_GOOD)
     {
-       res = UA_WriterGroup_setPubSubState(server, wg, UA_PUBSUBSTATE_OPERATIONAL,
+       UA_WriterGroup_setPubSubState(server, wg, UA_PUBSUBSTATE_OPERATIONAL,
                                             UA_STATUSCODE_GOOD);;
     }
 

@@ -601,7 +601,7 @@ UA_DataSetReader_setPubSubState(UA_Server *server,
             ret = UA_DataSetReader_setState_disabled(server, dataSetReader);
             break;
         case UA_PUBSUBSTATE_PAUSED:
-            ret = UA_STATUSCODE_BADNOTSUPPORTED;
+            dataSetReader->state = state;
             break;
         case UA_PUBSUBSTATE_PREOPERATIONAL:
         case UA_PUBSUBSTATE_OPERATIONAL:

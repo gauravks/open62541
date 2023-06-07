@@ -70,7 +70,7 @@ addPubSubConnection(UA_Server *server, UA_String *transportProfile,
     }
 
 
-    retval = UA_Server_setPubSubConnectionOperational(server, connectionIdentifier);
+    //retval = UA_Server_setPubSubConnectionOperational(server, connectionIdentifier);
     return retval;
 }
 

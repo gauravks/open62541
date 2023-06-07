@@ -23,6 +23,8 @@
 #endif
 
 #ifdef UA_ENABLE_PUBSUB /* conditional compilation */
+static void pubSubStateCallback(UA_Server *server, void *data);
+
 
 UA_StatusCode
 UA_PubSubConnectionConfig_copy(const UA_PubSubConnectionConfig *src,
@@ -350,27 +352,54 @@ setPubSubState_paused(UA_Server *server,
 }
 
 static UA_StatusCode
+startPubSubStateTimer(UA_Server *server, UA_PubSubConnection *connection) {
+    UA_StatusCode ret = UA_STATUSCODE_BAD;
+    UA_EventLoop *el = server->config.eventLoop;
+    UA_DateTime currentTime = UA_DateTime_nowMonotonic();
+    UA_DateTime targetTime = currentTime + (100 * UA_DATETIME_MSEC);
+    ret = el->addTimedCallback(el, (UA_Callback)pubSubStateCallback,
+                                server, connection, targetTime,
+                                &connection->pubSubStateTimerId);
+    if(ret != UA_STATUSCODE_GOOD) {
+        UA_LOG_ERROR(&server->config.logger, UA_LOGCATEGORY_SERVER,
+                        "Unable to start pubsub timer");
+    }
+
+    return ret;
+}
+
+
+
+static UA_StatusCode
 setPubSubState_preoperational(UA_Server *server,
                                             UA_PubSubConnection *connection,
                                             UA_StatusCode cause) {
+    UA_StatusCode ret = UA_STATUSCODE_BADNOTSUPPORTED;
     switch(connection->state) {
         case UA_PUBSUBSTATE_DISABLED:
         case UA_PUBSUBSTATE_PAUSED:
             connection->state = UA_PUBSUBSTATE_PREOPERATIONAL;
-            return UA_STATUSCODE_GOOD;
+            ret = UA_STATUSCODE_GOOD;
+            break;
         case UA_PUBSUBSTATE_PREOPERATIONAL:
             break;
         case UA_PUBSUBSTATE_OPERATIONAL:
             break;
         case UA_PUBSUBSTATE_ERROR:
             connection->state = UA_PUBSUBSTATE_PREOPERATIONAL;
-            return UA_STATUSCODE_GOOD;
+            ret = UA_STATUSCODE_GOOD;
+            break;
         default:
             UA_LOG_WARNING(&server->config.logger, UA_LOGCATEGORY_SERVER,
                            "Unknown PubSub state!");
             return UA_STATUSCODE_BADINTERNALERROR;
     }
-    return UA_STATUSCODE_BADNOTSUPPORTED;
+
+    if (ret == UA_STATUSCODE_GOOD) {
+        startPubSubStateTimer(server, connection);
+    }
+   
+    return ret;
 }
 
 static UA_StatusCode
@@ -405,6 +434,32 @@ setPubSubState_operational(UA_Server *server,
         return UA_STATUSCODE_BADINTERNALERROR;
     }
     return UA_STATUSCODE_BADNOTSUPPORTED;
+}
+
+static void
+pubSubStateCallback(UA_Server *server, void *data) {
+    UA_PubSubConnection *connection= (UA_PubSubConnection*)data;
+
+    if (connection->readerGroupsSize == 0 && connection->writerGroupsSize == 0) {
+        startPubSubStateTimer(server, connection);
+        return;
+    }
+
+    if (!(connection->channel->state == UA_PUBSUB_CHANNEL_RDY ||
+        connection->channel->state == UA_PUBSUB_CHANNEL_PUB)) {
+        startPubSubStateTimer(server, connection);
+        return;
+    }
+
+    if (connection->readerGroupsSize > 0 && !connection->isRegistered) {
+        startPubSubStateTimer(server, connection);
+        return;
+    }
+    UA_LOCK(&server->serviceMutex);
+    UA_LOG_INFO_CONNECTION(&server->config.logger, connection,
+                            "Changing to Operational state!")
+    setPubSubState_operational(server, connection, UA_STATUSCODE_GOOD);
+    UA_UNLOCK(&server->serviceMutex);
 }
 
 static UA_StatusCode
