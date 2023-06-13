@@ -788,8 +788,8 @@ UA_WriterGroup_setPubSubState_disable(UA_Server *server,
     UA_PubSubChannel *channel = NULL;
     switch (writerGroup->state){
         case UA_PUBSUBSTATE_DISABLED:
-            break;
         case UA_PUBSUBSTATE_PAUSED:
+        case UA_PUBSUBSTATE_ERROR:
             break;
         case UA_PUBSUBSTATE_PREOPERATIONAL:
         case UA_PUBSUBSTATE_OPERATIONAL:
@@ -809,40 +809,12 @@ UA_WriterGroup_setPubSubState_disable(UA_Server *server,
                 channel->closePublisher(channel);
             }
             break;
-        case UA_PUBSUBSTATE_ERROR:
-            break;
         default:
             UA_LOG_WARNING_WRITERGROUP(&server->config.logger, writerGroup,
                                         "Received unknown PubSub state!");
     }
     writerGroup->state = UA_PUBSUBSTATE_DISABLED;
     return UA_STATUSCODE_GOOD;
-}
-
-static UA_StatusCode
-UA_WriterGroup_setPubSubState_paused(UA_Server *server,
-                                     UA_WriterGroup *writerGroup,
-                                     UA_StatusCode cause) {
-    UA_LOG_DEBUG_WRITERGROUP(&server->config.logger, writerGroup,
-                             "PubSub state paused is unsupported at the moment!");
-    (void)cause;
-    switch (writerGroup->state) {
-        case UA_PUBSUBSTATE_DISABLED:
-            writerGroup->state = UA_PUBSUBSTATE_PAUSED;
-            return UA_STATUSCODE_GOOD;
-        case UA_PUBSUBSTATE_PAUSED:
-            break;
-        case UA_PUBSUBSTATE_PREOPERATIONAL:
-            break;
-        case UA_PUBSUBSTATE_OPERATIONAL:
-            break;
-        case UA_PUBSUBSTATE_ERROR:
-            break;
-        default:
-            UA_LOG_WARNING_WRITERGROUP(&server->config.logger, writerGroup,
-                                        "Received unknown PubSub state!");
-    }
-    return UA_STATUSCODE_BADNOTSUPPORTED;
 }
 
 static UA_StatusCode
@@ -853,8 +825,8 @@ UA_WriterGroup_setPubSubState_operational(UA_Server *server,
     UA_PubSubChannel *channel = NULL;
     switch(writerGroup->state) {
     case UA_PUBSUBSTATE_DISABLED:
-        break;
     case UA_PUBSUBSTATE_PAUSED:
+    case UA_PUBSUBSTATE_ERROR:
         break;
     case UA_PUBSUBSTATE_PREOPERATIONAL:
         writerGroup->state = UA_PUBSUBSTATE_OPERATIONAL;
@@ -873,12 +845,10 @@ UA_WriterGroup_setPubSubState_operational(UA_Server *server,
             channel->openPublisher(channel);
         }
         UA_WriterGroup_addPublishCallback(server, writerGroup);
-
         return UA_STATUSCODE_GOOD;
     case UA_PUBSUBSTATE_OPERATIONAL:
         return UA_STATUSCODE_GOOD;
-    case UA_PUBSUBSTATE_ERROR:
-        break;
+
     default:
         UA_LOG_WARNING_WRITERGROUP(&server->config.logger, writerGroup, "Unknown PubSub state!");
         return UA_STATUSCODE_BADINTERNALERROR;
@@ -895,17 +865,12 @@ UA_WriterGroup_setPubSubState_preoperational(UA_Server *server,
     switch(writerGroup->state) {
         case UA_PUBSUBSTATE_DISABLED:
         case UA_PUBSUBSTATE_PAUSED:
+        case UA_PUBSUBSTATE_ERROR:
             writerGroup->state = UA_PUBSUBSTATE_PREOPERATIONAL;
             ret = UA_STATUSCODE_GOOD;
             break;
         case UA_PUBSUBSTATE_PREOPERATIONAL:
-            ret = UA_STATUSCODE_GOOD;
-            break;
         case UA_PUBSUBSTATE_OPERATIONAL:
-            ret = UA_STATUSCODE_GOOD;
-            break;
-        case UA_PUBSUBSTATE_ERROR:
-            writerGroup->state = UA_PUBSUBSTATE_PREOPERATIONAL;
             ret = UA_STATUSCODE_GOOD;
             break;
         default:
@@ -929,7 +894,6 @@ UA_WriterGroup_setPubSubState_preoperational(UA_Server *server,
     return ret;
 }
 
-
 static UA_StatusCode
 UA_WriterGroup_setPubSubState_error(UA_Server *server,
                                     UA_WriterGroup *writerGroup,
@@ -937,10 +901,9 @@ UA_WriterGroup_setPubSubState_error(UA_Server *server,
     UA_DataSetWriter *dataSetWriter;
     switch (writerGroup->state){
         case UA_PUBSUBSTATE_DISABLED:
-            break;
         case UA_PUBSUBSTATE_PAUSED:
-            break;
         case UA_PUBSUBSTATE_PREOPERATIONAL:
+        case UA_PUBSUBSTATE_ERROR:
             break;
         case UA_PUBSUBSTATE_OPERATIONAL:
             UA_WriterGroup_removePublishCallback(server, writerGroup);
@@ -950,9 +913,7 @@ UA_WriterGroup_setPubSubState_error(UA_Server *server,
                                                 UA_STATUSCODE_GOOD);
             }
             break;
-        case UA_PUBSUBSTATE_ERROR:
-            break;
-        default:
+         default:
             UA_LOG_WARNING_WRITERGROUP(&server->config.logger, writerGroup,
                             "Received unknown PubSub state!");
     }
@@ -972,7 +933,7 @@ UA_WriterGroup_setPubSubState(UA_Server *server, UA_WriterGroup *writerGroup,
             ret = UA_WriterGroup_setPubSubState_disable(server, writerGroup, cause);
             break;
         case UA_PUBSUBSTATE_PAUSED:
-            ret = UA_WriterGroup_setPubSubState_paused(server, writerGroup, cause);
+            ret = UA_STATUSCODE_BADNOTSUPPORTED;
             break;
         case UA_PUBSUBSTATE_PREOPERATIONAL:
             ret = UA_WriterGroup_setPubSubState_preoperational(server, writerGroup, cause);

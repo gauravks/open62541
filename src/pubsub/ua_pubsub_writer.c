@@ -165,12 +165,10 @@ static UA_StatusCode setPubSubState_operational(UA_Server *server,
             ret = UA_STATUSCODE_BADNOTSUPPORTED;
             break;
         case UA_PUBSUBSTATE_PREOPERATIONAL:
+        case UA_PUBSUBSTATE_ERROR:
             dataSetWriter->state = UA_PUBSUBSTATE_OPERATIONAL;
             break;
         case UA_PUBSUBSTATE_OPERATIONAL:
-            break;
-        case UA_PUBSUBSTATE_ERROR:
-            dataSetWriter->state = UA_PUBSUBSTATE_OPERATIONAL;
             break;
         default:
             UA_LOG_WARNING_WRITER(&server->config.logger, dataSetWriter,
@@ -185,18 +183,13 @@ static UA_StatusCode setPubSubState_preoperational(UA_Server *server,
     UA_StatusCode ret = UA_STATUSCODE_GOOD;
     switch (dataSetWriter->state){
         case UA_PUBSUBSTATE_DISABLED:
-            dataSetWriter->state = UA_PUBSUBSTATE_PREOPERATIONAL;
-            break;
         case UA_PUBSUBSTATE_PAUSED:
-            dataSetWriter->state = UA_PUBSUBSTATE_PREOPERATIONAL;
-            break;
-        case UA_PUBSUBSTATE_PREOPERATIONAL:
-            break;
-        case UA_PUBSUBSTATE_OPERATIONAL:
-            return UA_STATUSCODE_GOOD;
         case UA_PUBSUBSTATE_ERROR:
             dataSetWriter->state = UA_PUBSUBSTATE_PREOPERATIONAL;
             break;
+        case UA_PUBSUBSTATE_PREOPERATIONAL:
+        case UA_PUBSUBSTATE_OPERATIONAL:
+            return UA_STATUSCODE_GOOD;
         default:
             UA_LOG_WARNING_WRITER(&server->config.logger, dataSetWriter,
                                     "Received unknown PubSub state!");
